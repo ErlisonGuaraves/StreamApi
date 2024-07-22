@@ -1,4 +1,4 @@
-from tortoise.contrib.fastapi import register_tortoise
+
 from dotenv import load_dotenv
 from os import getenv
 
