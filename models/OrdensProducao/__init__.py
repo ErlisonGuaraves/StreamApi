@@ -1,5 +1,6 @@
 from tortoise import fields, models
 
+
 class OrdensProducao(models.Model):
     data_entrega = fields.CharField(max_length=8)
     prodesc = fields.TextField()
