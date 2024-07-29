@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from shared.database import TORTOISE_ORM
 
 from controller.OrdensProducaoController import router as OrdensProducaoRouter
-from controller.paginacao import router as PaginationRouter
+from controller.paginationController import router as PaginationRouter
 
 app = FastAPI()
 
