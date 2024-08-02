@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from typing import List, Dict, Any
 
 import logging
 
-from utils.stream_data import stream_data  # Importar a função utilitária
+from utils.stream_data import stream_data 
 from utils.fetch_data import fetch_data
+from utils.count_rows import count_rows_updated, load_row_count, save_row_count
 
 router = APIRouter(prefix="/fiscaliza_resfriado", tags=["ordens de produção"])
 
@@ -20,6 +21,7 @@ async def get_fiscaliza_resfriado():
     try:
         result = await fetch_data("get_all_query")
         return StreamingResponse(stream_data(result), media_type="application/json")
+    
     except Exception as e:
         logger.error(f"Error in get_fiscaliza_resfriado: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
@@ -33,7 +35,9 @@ async def get_fiscaliza_resfriado_by_op(op: str):
         result = await fetch_data("get_by_op_query", [op])
         if not result:
             raise HTTPException(status_code=404, detail="Record not found")
+        
         return StreamingResponse(stream_data(result), media_type="application/json")
+    
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -60,28 +64,34 @@ async def get_fiscaliza_resfriado_by_date_range(
         raise HTTPException(status_code=500, detail="Internal Server Error")
     
 
-    
 
 
-@router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
+
+@router.get("/rows_updated")
+async def get_rows_updated():
     try:
-        while True:
-            data = await websocket.receive_text()
-            logger.info(f"Received message: {data}")
+        # Fetch the current row count
+        current_row_count_result = await fetch_data("count_query")
+        if not current_row_count_result or 'count' not in current_row_count_result[0]:
+            raise HTTPException(status_code=500, detail="Failed to fetch the current row count")
+        
+        current_row_count = current_row_count_result[0]['count']
 
-            # Simulação de uma consulta baseada na mensagem recebida
-            result = await fetch_data("get_all_query")
+        # Retrieve the last row count from the file
+        last_row_count = load_row_count()
 
-            # Enviar os dados ao cliente usando StreamingResponse
-            # Convertendo dados para o formato necessário
-            response_data = stream_data(result)
-            for chunk in response_data:
-                await websocket.send_text(chunk)
+        change = count_rows_updated(last_row_count, current_row_count)
 
-    except WebSocketDisconnect:
-        logger.warning("Client disconnected")
+        # Save the current row count to the file
+        save_row_count(current_row_count)
+
+        return {
+            'last_row_count': last_row_count,
+            'current_row_count': current_row_count,
+            'change': change,
+        }
     except Exception as e:
-        logger.error(f"Error in websocket connection: {str(e)}")
-        await websocket.close()
+        logger.error(f"Error in get_rows_updated: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+    

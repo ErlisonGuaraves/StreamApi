@@ -4,4 +4,10 @@
 
 venv/
 
+.venv
+
 shared/config
+
+logs/
+
+json/
